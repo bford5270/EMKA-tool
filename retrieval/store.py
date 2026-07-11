@@ -56,7 +56,8 @@ class ChunkStore:
         path = _sqlite_path(cfg)
         if not path.exists():
             raise FileNotFoundError(f"index not built: {path} (run `make index`)")
-        self._conn = sqlite3.connect(str(path))
+        # read-only usage; the API serves from worker threads
+        self._conn = sqlite3.connect(str(path), check_same_thread=False)
 
     def get(self, chunk_id: str) -> Chunk:
         row = self._conn.execute(
@@ -132,11 +133,10 @@ def build_indexes(chunks: list[Chunk], cfg: EmkaConfig, embedder: Embedder) -> N
     # --- dense vectors ---
     vectors = embedder.embed_documents([c.embed_text for c in chunks])
     db = lancedb.connect(str(_lance_dir(cfg)))
-    if _LANCE_TABLE in db.list_tables():
-        db.drop_table(_LANCE_TABLE)
     db.create_table(
         _LANCE_TABLE,
         data=[{"chunk_id": c.chunk_id, "vector": v} for c, v in zip(chunks, vectors, strict=True)],
+        mode="overwrite",
     )
 
     meta = {"n_chunks": len(chunks), "embed_backend": embedder.backend}
