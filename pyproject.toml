@@ -16,6 +16,7 @@ dependencies = [
     "einops>=0.8", # required by nomic-embed-text architecture
     "pymupdf>=1.28.0",
     "openpyxl>=3.1.5",
+    "lancedb>=0.34.0",
 ]
 
 [dependency-groups]

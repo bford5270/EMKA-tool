@@ -166,18 +166,17 @@ class StubEmbedder:
 
 
 class StubReranker:
-    """Token-overlap (Jaccard) relevance. Deterministic; scores in [0, 1]."""
+    """Query-term coverage relevance: |query ∩ passage| / |query|.
+    Deterministic; scores in [0, 1]; long passages are not penalized."""
 
     backend = "stub"
 
     def score(self, query: str, passages: list[str]) -> list[float]:
         _stub_banner()
         q = _token_set(query)
-        out = []
-        for p in passages:
-            t = _token_set(p)
-            out.append(len(q & t) / len(q | t) if q | t else 0.0)
-        return out
+        if not q:
+            return [0.0] * len(passages)
+        return [len(q & _token_set(p)) / len(q) for p in passages]
 
 
 class StubChatModel:
