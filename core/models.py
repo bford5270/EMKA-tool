@@ -180,9 +180,11 @@ class StubReranker:
 
 
 class StubChatModel:
-    """Echoes a grounded, quote-bearing answer from the passages embedded in
-    the prompt. Exists so the synthesize->verify->assemble pipeline can be
-    exercised deterministically without weights."""
+    """Emits a grounded, quote-bearing answer by parsing the [PASSAGE] blocks
+    of the synthesis prompt (generate/prompt_format.py). The quote is an exact
+    slice of the top-precedence passage, so verification passes genuinely and
+    the synthesize->verify->assemble pipeline is exercised deterministically
+    without weights."""
 
     backend = "stub"
 
@@ -190,10 +192,24 @@ class StubChatModel:
         self, messages: list[dict[str, str]], max_tokens: int = 1024, temperature: float = 0.1
     ) -> str:
         _stub_banner()
-        # Deterministic behavior is provided by generate/'s stub-aware prompt
-        # handling; at this layer we simply return the user content marker.
+        # lazy import: core must not import generate at module load time
+        from generate.prompt_format import PASSAGE_RE
+
         user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
-        return f"[stub-completion] {user[:200]}"
+        match = PASSAGE_RE.search(user)
+        if match is None:
+            return "The loaded corpus does not answer this question."
+        chunk_id, body = match.group("chunk_id"), match.group("body")
+        end = body.find(". ")
+        sentence = body[: end + 1] if end != -1 else body
+        answer = f'<quote src="{chunk_id}">{sentence}</quote>'
+        if "NOT in loadout" in user:
+            answer += (
+                "\nAvailability note (command-provided): a recommended item is not in "
+                "the current loadout; see the availability data and cited sources for "
+                "any source-stated alternative."
+            )
+        return answer
 
 
 # ---------------------------------------------------------------------------
