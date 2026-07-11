@@ -136,10 +136,7 @@ def build_indexes(chunks: list[Chunk], cfg: EmkaConfig, embedder: Embedder) -> N
         db.drop_table(_LANCE_TABLE)
     db.create_table(
         _LANCE_TABLE,
-        data=[
-            {"chunk_id": c.chunk_id, "vector": v}
-            for c, v in zip(chunks, vectors, strict=True)
-        ],
+        data=[{"chunk_id": c.chunk_id, "vector": v} for c, v in zip(chunks, vectors, strict=True)],
     )
 
     meta = {"n_chunks": len(chunks), "embed_backend": embedder.backend}

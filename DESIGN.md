@@ -144,11 +144,16 @@ Pipeline: **retrieve → synthesize → verify → assemble**.
 - **Grounded synthesis** (`generate/`): the model answers ONLY from provided
   passages, quotes exactly, cites pub/edition/paragraph/page, and presents conflicts
   per §3. Prompts are versioned files, not inline strings.
-- **Verbatim verification** (`generate/verify.py`): every span the model marks as a
-  quote is checked character-for-character against the cited chunk at its stored
-  offsets. Any failure triggers one regeneration; a second failure returns the raw
-  retrieved passages with a flag instead of a synthesized answer. **Fail safe,
-  never fabricate.**
+- **Verbatim verification** (`generate/verify.py`): the synthesis prompt requires
+  every verbatim quotation to be tagged `<quote src="CHUNK_ID">…</quote>`. Every
+  tagged span is then verified against the cited chunk, and — when the corpus
+  canonical text is available — re-confirmed at its absolute stored offsets.
+  Pass modes: `exact` (character-for-character) or `ws_normalized` (identical
+  after collapsing whitespace runs; PDF extraction breaks lines mid-sentence, so
+  this documented relaxation still requires every non-whitespace character to
+  match exactly, in order, contiguously). Any other difference fails. Any failure
+  triggers one regeneration; a second failure returns the raw retrieved passages
+  with a flag instead of a synthesized answer. **Fail safe, never fabricate.**
 
 ## 7. Resource-aware inference
 
