@@ -218,13 +218,27 @@ of importing each other; it holds no business logic.
 
 ## 10. Evaluation gate
 
-`eval/` runs gold-standard question–answer–citation triples (seed set:
-`eval/seed_cases.yaml`) and computes: retrieval recall@10, citation accuracy,
-verbatim-quote integrity, grounded-answer rate, honest-abstention rate, latency.
-It exits non-zero when any metric falls below its configured threshold, so it can
-gate every corpus and software change. Metric definitions live in `eval/README.md`
-and are elaborated here when the harness (Prompt 11) lands. **A confident wrong
+`eval/run.py` (`make eval`) runs every case in `eval/seed_cases.yaml` through the
+full answer pipeline and exits non-zero on any threshold breach (thresholds live
+in the YAML metadata; `--report-only` disables gating). **A confident wrong
 answer is a critical failure; an honest "not in corpus" is a pass.**
+
+Metric definitions (as implemented):
+
+| Metric | Definition | Population |
+|---|---|---|
+| `retrieval_recall_at_10` | any `expected_source_ref` doc id appears among the doc ids of the top-10 returned sources | cases with a non-empty `expected_source_ref` |
+| `citation_accuracy` | the answer displays ≥1 verifier-passed citation AND every passed citation's doc id is in `expected_source_ref` | `expected_behavior: answer` |
+| `verbatim_quote_integrity` | displayed quotes passed the verifier — synthesized mode requires `integrity=true`; `raw_passages`/`abstained` display no quotes (the verifier caught the failure), so they count as intact | `expected_behavior: answer` |
+| `grounded_answer_rate` | `answer_must_include` rubric satisfied. Default grader is deterministic keyword coverage (≥50 % of an element's content words present; case passes at ≥60 % of elements) — an approximation flagged in the report. `--grader=model` uses the local chat model per element (device use) | `expected_behavior: answer`, synthesized mode (non-synthesized = not grounded) |
+| `honest_abstention_rate` | the system abstained rather than improvising | `expected_behavior: abstain` |
+| `latency_seconds_max` | max query-to-answer wall time | all cases |
+
+Cases with a `context` block (resource-matching / capability-limit) run against
+an ephemeral loadout built from that context, so availability logic is
+exercised without touching staged unit files. The JSON report lands at
+`data/eval_report.json`; stub-model runs are watermarked in the report and
+console output — their numbers exercise mechanics, never quality gates.
 
 ## 11. Decision log
 

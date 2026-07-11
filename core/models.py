@@ -138,6 +138,24 @@ def _token_set(text: str) -> set[str]:
     return {t for t in "".join(c.lower() if c.isalnum() else " " for c in text).split() if t}
 
 
+_STUB_STOPWORDS = frozenset(
+    "a an and are as at be but by do does for from how i if in is it its me my "
+    "need of on or so soon that the their there this to we what when where "
+    "which who will with you your".split()
+)
+
+
+def _stem(token: str) -> str:
+    for suffix in ("ing", "ies", "es", "ed", "s"):
+        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
+            return token[: -len(suffix)]
+    return token
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {_stem(t) for t in _token_set(text) if t not in _STUB_STOPWORDS}
+
+
 class StubEmbedder:
     """Deterministic hashed bag-of-words embeddings. Lexical overlap produces
     real cosine geometry, which is enough to exercise retrieval mechanics."""
@@ -166,17 +184,18 @@ class StubEmbedder:
 
 
 class StubReranker:
-    """Query-term coverage relevance: |query ∩ passage| / |query|.
-    Deterministic; scores in [0, 1]; long passages are not penalized."""
+    """Query-term coverage relevance over stopword-filtered, crudely stemmed
+    content tokens: |query ∩ passage| / |query|. Deterministic; scores in
+    [0, 1]; long passages are not penalized."""
 
     backend = "stub"
 
     def score(self, query: str, passages: list[str]) -> list[float]:
         _stub_banner()
-        q = _token_set(query)
+        q = _content_tokens(query)
         if not q:
             return [0.0] * len(passages)
-        return [len(q & _token_set(p)) / len(q) for p in passages]
+        return [len(q & _content_tokens(p)) / len(q) for p in passages]
 
 
 class StubChatModel:
