@@ -13,7 +13,8 @@ dependencies = [
     # [[tool.uv.index]] pytorch-cpu block below. PyPI's default wheels also
     # run fine on CPU; they are just larger.
     "torch>=2.4",
-    "einops>=0.8",  # required by nomic-embed-text architecture
+    "einops>=0.8", # required by nomic-embed-text architecture
+    "pymupdf>=1.28.0",
 ]
 
 [dependency-groups]

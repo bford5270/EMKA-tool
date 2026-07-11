@@ -89,15 +89,46 @@ source.* Capability/formulary data (§7) is governed as unit-shelf content.
 - Chunks persist as JSONL plus an ingest manifest (doc id, sha256, status).
 
 **The chunk schema is the contract every downstream component binds to.** It is
-defined as a dataclass in `core/schema.py` and documented here when Prompt 3 lands.
-After that point the schema is FROZEN — changes require an explicit migration
-proposal in this document.
+defined as `core.schema.Chunk` and is **FROZEN as of Prompt 3 (v1.0)** — changes
+require an explicit migration proposal in this document.
 
-> **Status: schema not yet frozen** — placeholder until the ingestion prompt (#3)
-> is complete. Required fields per the playbook: `doc_id, title, pub_number,
-> edition_date, authority_tier (T1–T5), shelf, distribution_stmt, category,
-> rights_posture, source_sha256, page, char_start, char_end, breadcrumb` plus the
-> chunk text itself.
+```
+Chunk v1.0
+  chunk_id: str            f"{doc_id}:{seq:05d}"
+  doc_id: str              manifest Ref ID (e.g. "CPG-03")
+  seq: int                 0-based position within the document
+  title, pub_number, edition_date: str
+  authority_tier: str      T1..T5          shelf: str  authoritative|unit
+  distribution_stmt, category, rights_posture: str
+  source_sha256: str       sha256 of the source PDF file
+  page: int                1-based PDF page where the chunk starts
+  char_start, char_end: int   offsets into the CANONICAL EXTRACTED TEXT
+  breadcrumb: str          e.g. "NTTP 4-02 > Ch 3 > 3.2.1 > p.37"
+  text: str                exact canonical-text slice (verbatim)
+  is_atomic: bool          table/dosing/algorithm block, never split
+  token_est: int
+  schema_version: str      "1.0"
+```
+
+Contract details:
+
+- **Canonical text**: `ingest.extract.extract_document` emits each page's
+  layout-sorted text joined by form feeds. The invariant every verifier relies
+  on: `canonical_text[char_start:char_end] == chunk.text`, byte-for-byte.
+- **Deliberate deviation from the playbook**: offsets are *character* offsets
+  into the canonical extracted text, not byte offsets into the raw PDF —
+  Python-native, deterministic, and UTF-8 byte offsets remain derivable.
+- **Section alignment beats target size**: a recognized heading always starts
+  a new chunk, so breadcrumbs are exact even when that yields chunks under
+  200 tokens. One-paragraph overlap applies only within a section.
+- **Atomic blocks**: dosing/column/step patterns (including tables whose rows
+  extract as separate one-line blocks) are merged and never split, even when
+  oversized.
+- **Retrieval indexes `chunk.embed_text`** (breadcrumb + text); **verification
+  always checks `chunk.text`**.
+- OCR: image-only pages use local `tesseract` when installed (a device
+  provisioning requirement); otherwise the page is flagged in
+  `ingest_manifest.json:ocr_missing_pages` — a visible defect, never silent.
 
 ## 6. Retrieval, generation, and the verification layer
 
