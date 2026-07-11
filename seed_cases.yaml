@@ -1,0 +1,572 @@
+# EMKA Gold-Standard Evaluation — Seed Cases
+# ------------------------------------------------------------------------------
+# Source of truth for what the retrieval/generation stack must get right.
+# Referenced by the eval harness (see docs/EMKA_Build_Prompts.md, Prompt 11).
+#
+# SCHEMA (per case)
+#   id                  Stable case ID.
+#   role                IDC | Role2 | Planner | DNBI  (primary user population)
+#   category            Clinical/doctrinal topic.
+#   question            The plain-language query as a user would type it.
+#   expected_behavior   answer | abstain
+#   expected_source_ref Manifest Ref ID(s) that SHOULD appear in retrieval (recall@10).
+#   expected_source     Human-readable title of that source.
+#   expected_citation   The section/paragraph the answer should cite (citation accuracy).
+#   answer_must_include Key elements a grounded answer must contain (grounded-answer rubric).
+#                       Concept-level, not verbatim. Exact numeric values flagged in sme_verify.
+#   exercises           Behaviors this case tests: retrieval | citation | grounded_answer |
+#                       abstention | conflict_handling | resource_matching | capability_limit
+#   difficulty          standard | hard | adversarial
+#   sme_verify          Items the SME custodian MUST confirm against the cited source before
+#                       this case is authoritative. Precise doses/timings live here on purpose —
+#                       a wrong "expected answer" is worse than none.
+#   context             (optional) Availability/loadout facts for resource_matching cases.
+#
+# GOVERNANCE: This is a SEED set (30 cases) to bootstrap the harness. The clinical SME
+# panel expands it toward the ~200-case target and validates every sme_verify item.
+# Editions/section numbers below reflect the corpus manifest; confirm at ingest.
+# ------------------------------------------------------------------------------
+
+metadata:
+  version: 0.1-seed
+  authored: 2026-07
+  target_case_count: 200
+  seed_case_count: 30
+  thresholds:            # harness fails (non-zero exit) if any metric falls below these
+    retrieval_recall_at_10: 0.95
+    citation_accuracy: 0.99
+    verbatim_quote_integrity: 1.00
+    grounded_answer_rate: 0.98
+    honest_abstention_rate: 0.95
+    latency_seconds_max: 30
+
+cases:
+
+# ============================ IDC / ROLE 1 ====================================
+
+- id: EMKA-EVAL-001
+  role: IDC
+  category: Hemorrhage
+  question: "When do I give TXA to a casualty and how soon does it need to happen?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-01, CPG-03]
+  expected_source: "TCCC Guidelines; Damage Control Resuscitation CPG"
+  expected_citation: "TCCC Guidelines — TXA administration section"
+  answer_must_include:
+    - "indicated for casualties with or at risk of significant hemorrhage / anticipated massive transfusion"
+    - "give as early as possible after injury; there is a time window beyond which it is not recommended to initiate"
+    - "administered as an infusion, not a rapid IV push"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "exact dose and whether current TCCC uses a single-dose vs two-dose regimen"
+    - "the exact time window for initiation (hours from injury)"
+
+- id: EMKA-EVAL-002
+  role: IDC
+  category: Hemorrhage
+  question: "How do I manage a junctional groin bleed that a tourniquet won't control?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-01]
+  expected_source: "TCCC Guidelines"
+  expected_citation: "TCCC Guidelines — Massive Hemorrhage / junctional hemorrhage"
+  answer_must_include:
+    - "wound packing with hemostatic dressing and direct pressure"
+    - "consideration of a junctional tourniquet where available"
+    - "reassess and maintain pressure while preparing for evacuation"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the specific hemostatic dressing(s) named as preferred in current TCCC"
+    - "minimum packing/hold time before reassessment"
+
+- id: EMKA-EVAL-003
+  role: IDC
+  category: Cold / Hypothermia
+  question: "What do I do to prevent hypothermia in a trauma casualty in the field?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-47]
+  expected_source: "Hypothermia Prevention, Monitoring, and Management CPG"
+  expected_citation: "Hypothermia Prevention CPG — prevention measures"
+  answer_must_include:
+    - "minimize exposure; remove wet clothing; insulate from the ground"
+    - "active external warming with a hypothermia prevention/management kit or equivalent"
+    - "hypothermia worsens coagulopathy — prevention is part of hemorrhage management"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "named kit(s) and any temperature thresholds cited"
+
+- id: EMKA-EVAL-004
+  role: IDC
+  category: Pain / Analgesia
+  question: "What are my analgesia options for a casualty who is still in the fight vs one in shock?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-01, CPG-43]
+  expected_source: "TCCC Guidelines; Analgesia and Sedation in Prolonged Field Care CPG"
+  expected_citation: "TCCC Guidelines — Analgesia (triple-option) section"
+  answer_must_include:
+    - "mild pain / still able to fight: oral analgesia option"
+    - "moderate-to-severe pain without shock/respiratory distress: one option class"
+    - "moderate-to-severe pain WITH shock/respiratory distress: a different preferred agent"
+    - "monitor airway/resperations; naloxone available if opioid used"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "the exact three TCCC analgesia options and their agents/doses/routes"
+
+- id: EMKA-EVAL-005
+  role: IDC
+  category: Neuro / TBI
+  question: "Field management priorities for a casualty with a suspected severe TBI before evacuation?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-18, CPG-17]
+  expected_source: "TBI Management in Prolonged Field Care CPG"
+  expected_citation: "TBI in PFC CPG — prehospital management"
+  answer_must_include:
+    - "avoid hypoxia and hypotension (the secondary-injury drivers)"
+    - "maintain oxygenation and blood pressure targets; elevate head of bed if not contraindicated"
+    - "avoid hyperventilation except as a temporizing measure for herniation signs"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "exact SBP and SpO2 targets and any ETCO2 range cited"
+
+# ============================ ROLE 2 =========================================
+
+- id: EMKA-EVAL-006
+  role: Role2
+  category: Blood / Resuscitation
+  question: "What are the criteria and steps to activate a walking blood bank for fresh whole blood?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-05, CPG-06, INS-02]
+  expected_source: "Whole Blood Transfusion CPG; ASBP guidance"
+  expected_citation: "Whole Blood Transfusion CPG — walking blood bank activation"
+  answer_must_include:
+    - "activation triggers tied to hemorrhagic shock / anticipated large-volume transfusion"
+    - "use of pre-screened, titer-tested donors where possible"
+    - "rapid donor ID confirmation and transfusion documentation requirements"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the specific donor pre-screening/titer requirements and activation authority"
+
+- id: EMKA-EVAL-007
+  role: Role2
+  category: Burns
+  question: "Estimate the fluid resuscitation rate for a 40% TBSA burn when I have no burn flow sheet."
+  expected_behavior: answer
+  expected_source_ref: [CPG-11, FRM-04]
+  expected_source: "Burn Care CPG; JTS Burn Resuscitation Worksheet"
+  expected_citation: "Burn Care CPG — resuscitation formula"
+  answer_must_include:
+    - "use the modified formula / rule-of-ten style starting-rate estimate for initial rate"
+    - "titrate to urine output target rather than a fixed volume"
+    - "estimate TBSA with a Lund-Browder / rule-of-nines method (points to the worksheet)"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "the exact starting-rate formula and the urine-output titration target in the current CPG"
+
+- id: EMKA-EVAL-008
+  role: Role2
+  category: Blood / Resuscitation
+  question: "What ratio and endpoints should guide damage control resuscitation?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-03]
+  expected_source: "Damage Control Resuscitation CPG"
+  expected_citation: "DCR CPG — component ratios and resuscitation endpoints"
+  answer_must_include:
+    - "whole blood preferred; if components, a balanced ratio approach"
+    - "permissive hypotension targets until hemorrhage control (with TBI as an exception)"
+    - "calcium monitoring/repletion during massive transfusion"
+    - "endpoints: perfusion markers, not a fixed volume"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "the exact component ratio, permissive-hypotension SBP target, and calcium thresholds"
+
+- id: EMKA-EVAL-009
+  role: Role2
+  category: Chest / Hemorrhage
+  question: "What are the REBOA zones and when is zone 1 vs zone 3 occlusion appropriate?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-25]
+  expected_source: "REBOA for Hemorrhagic Shock CPG"
+  expected_citation: "REBOA CPG — zone definitions and indications"
+  answer_must_include:
+    - "zone 1 for abdominal/torso hemorrhage; zone 3 for pelvic/junctional hemorrhage"
+    - "zone 2 is generally avoided (para-visceral)"
+    - "occlusion time is a critical limiting factor"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "anatomic zone boundaries and maximum recommended occlusion times"
+
+- id: EMKA-EVAL-010
+  role: Role2
+  category: Orthopedic / Extremity
+  question: "What are the indications for fasciotomy in a casualty with a mangled extremity?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-29, MSK-02]
+  expected_source: "Acute Extremity Compartment Syndrome & Fasciotomy CPG"
+  expected_citation: "Compartment Syndrome & Fasciotomy CPG — indications"
+  answer_must_include:
+    - "clinical signs (pain out of proportion, pain on passive stretch) and high-risk mechanisms"
+    - "compartment pressure thresholds / delta-pressure where measured"
+    - "low threshold before prolonged transport or when serial exam isn't possible"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact delta-pressure / absolute pressure threshold cited"
+
+- id: EMKA-EVAL-011
+  role: Role2
+  category: Infection
+  question: "What antibiotics should I start for infection prevention in combat wounds and open fractures?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-37]
+  expected_source: "Infection Prevention in Combat-Related Injuries CPG"
+  expected_citation: "Infection Prevention CPG — antibiotic selection by injury pattern"
+  answer_must_include:
+    - "early first-line antibiotic for general combat wounds"
+    - "a different/expanded regimen for specific patterns (e.g., abdominal, CNS, ocular)"
+    - "give as soon as possible after injury; document time"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact first-line agent and doses, and the pattern-specific regimens"
+
+# ============================ PLANNER / DOCTRINE ==============================
+
+- id: EMKA-EVAL-012
+  role: Planner
+  category: HSS Doctrine
+  question: "Doctrinally, what's the capability difference between an FRSS and a Role 2 Light Maneuver element?"
+  expected_behavior: answer
+  expected_source_ref: [DOC-05, DOC-03]
+  expected_source: "MCTP 3-40A Health Service Support Operations; NTTP 4-02 Role 2"
+  expected_citation: "MCTP 3-40A — Role 2 / FRSS capability descriptions"
+  answer_must_include:
+    - "FRSS provides damage-control surgery with limited holding"
+    - "Role 2 LM adds/differs in resuscitative and holding capability"
+    - "differences in staffing, holding capacity, and evacuation dependency"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "current doctrinal capability statements and holding figures for each"
+
+- id: EMKA-EVAL-013
+  role: Planner
+  category: Patient Movement
+  question: "What are the MEDEVAC precedence categories and their evacuation timelines?"
+  expected_behavior: answer
+  expected_source_ref: [DOC-02]
+  expected_source: "NTTP 4-02.2 Patient Movement"
+  expected_citation: "Patient Movement doctrine — precedence categories"
+  answer_must_include:
+    - "urgent, urgent-surgical, priority, routine, convenience categories"
+    - "the associated maximum evacuation timeframes"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact timeline (hours) associated with each precedence category in current doctrine"
+
+- id: EMKA-EVAL-014
+  role: Planner
+  category: Blood Posture
+  question: "Who has the authority to activate a walking blood bank and what pre-coordination is required?"
+  expected_behavior: answer
+  expected_source_ref: [INS-02, CPG-05]
+  expected_source: "ASBP / Joint Blood Program guidance; Whole Blood Transfusion CPG"
+  expected_citation: "ASBP guidance — activation authority and pre-screening"
+  answer_must_include:
+    - "activation authority sits with a designated medical officer/command role"
+    - "donor panel pre-screening and titer testing are pre-coordinated before need"
+    - "documentation and traceability requirements"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the specific authority level and pre-screening requirements in current policy"
+
+- id: EMKA-EVAL-015
+  role: Planner
+  category: Capability
+  question: "What is the doctrinal patient-holding capacity and time limit for a Role 2 facility?"
+  expected_behavior: answer
+  expected_source_ref: [DOC-05, DOC-03]
+  expected_source: "MCTP 3-40A; NTTP 4-02 Role 2"
+  expected_citation: "HSS doctrine — Role 2 holding capacity"
+  answer_must_include:
+    - "a stated holding capacity (number of patients) and a holding time limit"
+    - "the expectation that Role 2 stabilizes and evacuates rather than provides definitive care"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact holding numbers and time limits in current doctrine"
+
+# ============================ DNBI / PRIMARY CARE =============================
+
+- id: EMKA-EVAL-016
+  role: DNBI
+  category: Tropical / Malaria
+  question: "What is the treatment for uncomplicated P. falciparum malaria in a deployed service member?"
+  expected_behavior: answer
+  expected_source_ref: [ID-02]
+  expected_source: "CDC Guidelines for Treatment of Malaria in the U.S."
+  expected_citation: "CDC malaria treatment — uncomplicated P. falciparum"
+  answer_must_include:
+    - "treatment depends on species and regional resistance"
+    - "an ACT or other first-line regimen for chloroquine-resistant falciparum"
+    - "distinguish uncomplicated from severe (severe requires IV therapy and evacuation)"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "the exact current CDC first-line regimen and dosing"
+
+- id: EMKA-EVAL-017
+  role: DNBI
+  category: Heat Illness
+  question: "Field management of a service member with suspected exertional heat stroke?"
+  expected_behavior: answer
+  expected_source_ref: [EN-02]
+  expected_source: "TB MED 507 — Heat Stress Control & Heat Casualty Management"
+  expected_citation: "TB MED 507 — heat stroke management"
+  answer_must_include:
+    - "rapid cooling is the priority — cool first, transport second"
+    - "cold/ice-water immersion where feasible; continuous temperature monitoring"
+    - "recognize altered mental status as the key differentiator from heat exhaustion"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "target core temperature to cool to and any immersion time guidance"
+
+- id: EMKA-EVAL-018
+  role: DNBI
+  category: GI / Tropical
+  question: "How do I manage acute travelers' diarrhea in a deployed member — when do I add antibiotics?"
+  expected_behavior: answer
+  expected_source_ref: [ID-06]
+  expected_source: "Deployed acute diarrheal disease management guidance"
+  expected_citation: "Deployed AGE guidance — severity-based management"
+  answer_must_include:
+    - "hydration is the foundation of management"
+    - "loperamide for symptom control in non-dysenteric illness"
+    - "antibiotics reserved for moderate-to-severe or dysenteric illness"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the specific antibiotic and duration recommended, and severity thresholds"
+
+- id: EMKA-EVAL-019
+  role: DNBI
+  category: Cardiovascular
+  question: "Initial workup and management for a new diagnosis of hypertension at sick call?"
+  expected_behavior: answer
+  expected_source_ref: [PC-01]
+  expected_source: "VA/DoD CPG: Hypertension"
+  expected_citation: "VA/DoD HTN CPG — diagnosis and initial management"
+  answer_must_include:
+    - "confirm with repeated/out-of-office measurements before diagnosis"
+    - "lifestyle modification as foundational"
+    - "BP threshold/target for initiating pharmacotherapy"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact diagnostic threshold and treatment target in the current CPG"
+
+- id: EMKA-EVAL-020
+  role: DNBI
+  category: MSK / Spine
+  question: "What are the red flags for low back pain that require imaging or evacuation vs conservative care?"
+  expected_behavior: answer
+  expected_source_ref: [PC-10, MSK-09]
+  expected_source: "VA/DoD CPG: Low Back Pain"
+  expected_citation: "VA/DoD LBP CPG — red flags"
+  answer_must_include:
+    - "red flags: neuro deficit, cauda equina signs, trauma, infection/malignancy features"
+    - "most acute LBP is managed conservatively without early imaging"
+    - "when red flags are absent, avoid routine early imaging"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the complete red-flag list in the current CPG"
+
+- id: EMKA-EVAL-021
+  role: DNBI
+  category: Behavioral Health
+  question: "How do I assess and manage a service member expressing suicidal thoughts at the aid station?"
+  expected_behavior: answer
+  expected_source_ref: [BH-01]
+  expected_source: "VA/DoD CPG: Assessment & Management of Patients at Risk for Suicide"
+  expected_citation: "VA/DoD Suicide Risk CPG — assessment and management"
+  answer_must_include:
+    - "structured risk assessment covering ideation, intent, plan, access to means"
+    - "means-safety counseling and not leaving the person alone when acute risk is present"
+    - "escalation/referral pathway and safety planning"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the specific assessment tool/framework and disposition criteria cited"
+
+- id: EMKA-EVAL-022
+  role: DNBI
+  category: Operational BH
+  question: "What's the forward, non-specialty approach to a service member with an acute stress reaction after a firefight?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-72, BH-08]
+  expected_source: "Forward Mgmt of Acute Mental Health Conditions (Non-specialty) CPG"
+  expected_citation: "Forward Acute MH CPG — acute stress reaction"
+  answer_must_include:
+    - "principles of proximity, immediacy, expectancy, simplicity (PIES)"
+    - "rest, replenishment, and reassurance with expectation of return to duty"
+    - "screen for red-flag symptoms requiring higher level of care"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact framework and return-to-duty guidance in the current CPG"
+
+- id: EMKA-EVAL-023
+  role: DNBI
+  category: GU / ID
+  question: "First-line treatment for uncomplicated gonorrhea/chlamydia in a deployed member?"
+  expected_behavior: answer
+  expected_source_ref: [SP-07]
+  expected_source: "CDC STI Treatment Guidelines"
+  expected_citation: "CDC STI Treatment Guidelines — gonorrhea/chlamydia"
+  answer_must_include:
+    - "current first-line regimen for gonorrhea"
+    - "coverage/consideration for concurrent chlamydia"
+    - "partner treatment and follow-up counseling"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "the exact current CDC regimen and doses"
+
+- id: EMKA-EVAL-024
+  role: DNBI
+  category: MSK / Procedures
+  question: "How do I splint a suspected lateral ankle sprain and what's the return-to-activity guidance?"
+  expected_behavior: answer
+  expected_source_ref: [MSK-11, SP-09]
+  expected_source: "Splinting/technique guidance; MSK/sports references"
+  expected_citation: "Splinting technique reference — ankle"
+  answer_must_include:
+    - "PRICE / relative rest, protection, and functional support"
+    - "Ottawa ankle rules to decide on imaging need"
+    - "graded return to activity as tolerated"
+  exercises: [retrieval, citation, grounded_answer]
+  difficulty: standard
+  sme_verify:
+    - "confirm the specific reference used and its return-to-activity timeline"
+
+# ==================== SPECIAL BEHAVIORS: ABSTENTION ==========================
+
+- id: EMKA-EVAL-025
+  role: Planner
+  category: Out-of-corpus (administrative)
+  question: "What's the current preventive-maintenance interval for the unit's tactical generators?"
+  expected_behavior: abstain
+  expected_source_ref: []
+  expected_source: "None — outside medical reference corpus"
+  expected_citation: null
+  answer_must_include:
+    - "states plainly that the loaded corpus does not address this topic"
+    - "does NOT fabricate an interval or cite an unrelated source"
+    - "optionally points to the closest available material or the correct owning reference"
+  exercises: [abstention]
+  difficulty: standard
+  sme_verify: []
+
+- id: EMKA-EVAL-026
+  role: DNBI
+  category: Out-of-corpus (future/unknowable)
+  question: "What does the 2028 update to the malaria treatment guideline recommend?"
+  expected_behavior: abstain
+  expected_source_ref: []
+  expected_source: "None — corpus reflects editions as loaded; no future edition present"
+  expected_citation: null
+  answer_must_include:
+    - "states the loaded corpus does not contain that (future) edition"
+    - "offers the current loaded edition instead, with its edition date"
+    - "does NOT invent future recommendations"
+  exercises: [abstention]
+  difficulty: adversarial
+  sme_verify: []
+
+- id: EMKA-EVAL-027
+  role: Role2
+  category: Adversarial (plausible but unsupported)
+  question: "Confirm the exact whole-blood shelf life at 4°C for the specific product we're carrying."
+  expected_behavior: abstain
+  expected_source_ref: [CPG-05]
+  expected_source: "Whole Blood Transfusion CPG (closest passages)"
+  expected_citation: null
+  answer_must_include:
+    - "if the precise product-specific figure isn't in the corpus, says so rather than guessing"
+    - "surfaces the closest relevant passage (general storage guidance) and flags the gap"
+    - "does NOT state a specific number not supported by a retrieved passage"
+  exercises: [abstention, retrieval]
+  difficulty: adversarial
+  sme_verify:
+    - "whether the specific storage figure is in fact present in the loaded corpus; if so, this becomes an answer case"
+
+# ==================== SPECIAL BEHAVIORS: CONFLICT HANDLING ===================
+
+- id: EMKA-EVAL-028
+  role: Role2
+  category: Conflict handling
+  question: "What's the recommended resuscitation fluid approach for burns — the reference text and the CPG seem to differ?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-11, REF-01]
+  expected_source: "Burn Care CPG (current) vs Emergency War Surgery (reference)"
+  expected_citation: "Both sources, each with edition/date"
+  answer_must_include:
+    - "presents BOTH sources verbatim with their edition dates"
+    - "explicitly flags that the sources differ"
+    - "orders by authority tier/recency (current CPG over older reference text) WITHOUT suppressing either"
+  exercises: [conflict_handling, retrieval, citation]
+  difficulty: hard
+  sme_verify:
+    - "whether a genuine numeric difference exists between the loaded editions; adjust case if not"
+
+# ==================== SPECIAL BEHAVIORS: RESOURCE-AWARE INFERENCE ============
+
+- id: EMKA-EVAL-029
+  role: Role2
+  category: Resource matching
+  question: "My formulary has calcium chloride but not calcium gluconate — how do I manage calcium during massive transfusion?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-03]
+  expected_source: "Damage Control Resuscitation CPG"
+  expected_citation: "DCR CPG — calcium management"
+  context:
+    formulary_absent: ["calcium gluconate"]
+    formulary_present: ["calcium chloride"]
+  answer_must_include:
+    - "recognizes calcium gluconate is not stocked (uses the availability datum)"
+    - "surfaces the CPG's stated alternative (calcium chloride) rather than the unavailable option"
+    - "shows BOTH the clinical passage AND the availability note; does not invent a dose"
+  exercises: [resource_matching, retrieval, grounded_answer]
+  difficulty: hard
+  sme_verify:
+    - "that the CPG actually lists calcium chloride as an alternative and the equivalent dosing"
+
+- id: EMKA-EVAL-030
+  role: IDC
+  category: Capability limit
+  question: "Can I perform a surgical cricothyrotomy at my Role 1 aid station, and if not what's the alternative?"
+  expected_behavior: answer
+  expected_source_ref: [CPG-13, CAP-03]
+  expected_source: "Airway Management in Trauma CPG; Role 1/2/3 capability matrix"
+  expected_citation: "Airway Management CPG — surgical airway; capability matrix — Role 1 scope"
+  context:
+    capability_matrix: "Role 1 = surgical airway within scope; definitive surgical care = Role 2+"
+  answer_must_include:
+    - "surgical cricothyrotomy is a TCCC/Role 1 airway skill (within scope) — so this is affirmatively yes"
+    - "cites the procedure indication/technique from the airway CPG"
+    - "notes evacuation to Role 2+ for definitive management after the airway is secured"
+  exercises: [capability_limit, resource_matching, retrieval]
+  difficulty: hard
+  sme_verify:
+    - "confirm cric is affirmed as within Role 1/IDC scope in the loaded scope-of-practice reference"
