@@ -36,7 +36,13 @@ The build packages (`ingest/`, `retrieval/`, `generate/`, `capability/`, `api/`,
 
 ## Status
 
-Prototype scaffold. Design docs and gold-standard eval seed complete; build in progress.
+All 11 build-playbook prompts implemented: ingestion (frozen chunk schema
+v1.0), manifest-driven ingest queue, hybrid retrieval with abstention,
+verbatim verification, grounded synthesis with capability matching, FastAPI
+service, React front end, and the gold-standard eval harness. To go live on
+a device: run `make setup && make models` on a networked provisioning box,
+stage the Phase-0 PDFs under `corpus/authoritative/` (filename convention in
+`corpus/README.md`), then `make ingest index eval serve`. See DESIGN.md.
 
 ## Governance
 
