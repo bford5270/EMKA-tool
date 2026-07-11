@@ -1,0 +1,34 @@
+[project]
+name = "emka"
+version = "0.1.0"
+description = "Expeditionary Medical Knowledge Assistant — air-gapped, retrieval-augmented medical reference for deployed use"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "pytest>=8.0",
+]
+
+[tool.uv]
+# This repo is run in place (pythonpath), not installed as a distribution —
+# avoids packaging a top-level module named `eval` and keeps the layout
+# exactly as the build playbook specifies.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["web", "corpus", "models"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "A001", # `eval/` package name is mandated by the project layout
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
