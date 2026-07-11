@@ -1,0 +1,14 @@
+# CAP-04 — Blood product posture & walking blood bank. NON-PHI (counts only,
+# never donor identities). Command-provided.
+as_of: 2026-07-01
+source: "EXAMPLE ONLY — replace with command-approved posture"
+products:
+  - type: "CS-LTOWB"
+    units_on_hand: 10
+    location: role2
+  - type: "FDP"
+    units_on_hand: 8
+    location: role2
+walking_blood_bank:
+  screened_donors: 40
+  titer_screened: true

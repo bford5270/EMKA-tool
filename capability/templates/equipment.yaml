@@ -1,0 +1,14 @@
+# CAP-02 — AMAL/ADAL equipment on hand. NON-PHI.
+# Command-provided: copy to corpus/unit/capability/equipment.yaml and maintain.
+as_of: 2026-07-01
+source: "EXAMPLE ONLY — replace with command-approved AMAL export"
+items:
+  - name: portable ventilator
+    amal: "AMAL 635"
+    roles: [role2, role3]
+  - name: i-STAT analyzer
+    amal: "AMAL 635"
+    roles: [role2, role3]
+  - name: portable ultrasound
+    amal: "AMAL 636"
+    roles: [role1, role2, role3]

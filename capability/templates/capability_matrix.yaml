@@ -1,0 +1,21 @@
+# CAP-03 — Role 1/2/3 capability matrix (what each echelon can do).
+# Derived from doctrine; structured for matching. NON-PHI.
+as_of: 2026-07-01
+source: "EXAMPLE ONLY — derive from Doctrine tab publications"
+roles:
+  role1:
+    - tactical combat casualty care
+    - hemorrhage control
+    - airway management (basic)
+    - sick call / DNBI care
+  role2:
+    - damage control resuscitation
+    - damage control surgery (FRSS/ERSS attachment)
+    - whole blood transfusion
+    - laboratory (i-STAT) and basic imaging
+    - patient holding (limited)
+  role3:
+    - definitive resuscitative surgery
+    - intensive care
+    - blood bank
+    - ancillary services (lab, radiology, pharmacy)
