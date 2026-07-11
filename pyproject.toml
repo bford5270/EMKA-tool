@@ -3,13 +3,37 @@ name = "emka"
 version = "0.1.0"
 description = "Expeditionary Medical Knowledge Assistant — air-gapped, retrieval-augmented medical reference for deployed use"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    # Inference — llama.cpp bindings; CPU build, hardware-portable (macOS dev / x86 target)
+    "llama-cpp-python>=0.3.8",
+    # Local embeddings + reranker; torch is pinned to CPU wheels (see [tool.uv.sources])
+    "sentence-transformers>=3.0",
+    # NOTE for provisioning: prefer CPU-only wheels to avoid gigabytes of CUDA
+    # libraries — on a box with access to download.pytorch.org, uncomment the
+    # [[tool.uv.index]] pytorch-cpu block below. PyPI's default wheels also
+    # run fine on CPU; they are just larger.
+    "torch>=2.4",
+    "einops>=0.8",  # required by nomic-embed-text architecture
+]
 
 [dependency-groups]
 dev = [
     "ruff>=0.8",
     "pytest>=8.0",
 ]
+# Provisioning-time only (network allowed); NOT a runtime dependency
+provision = [
+    "huggingface-hub>=0.26",
+]
+
+# Uncomment on provisioning machines that can reach download.pytorch.org:
+# [[tool.uv.index]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true
+#
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
 
 [tool.uv]
 # This repo is run in place (pythonpath), not installed as a distribution —

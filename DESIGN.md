@@ -147,7 +147,17 @@ weights differ.
 | Embeddings | nomic-embed-text-v1.5 | same | Nomic AI (US), Apache-2.0 |
 | Reranker | mxbai-rerank-base-v1 | mxbai-rerank-large-v1 | Mixedbread (DE), Apache-2.0 |
 
-(Exact staged file list is documented in `models/README.md` once Prompt 2 lands.)
+Exact staged file list: `models/README.md`. Provisioning is `make models`
+(the only networked step); `make smoke` then proves chat, embedding, and
+reranking all run with a socket-level network kill switch installed.
+
+**Backend abstraction (`core/models.py`).** Retrieval/generation/eval consume
+`ChatModel` / `Embedder` / `Reranker` interfaces. Real backends (llama.cpp,
+sentence-transformers) load from staged local files only. Deterministic STUB
+backends exist for development environments where weights cannot be staged
+(CI, restricted-egress cloud sessions); they are gated behind
+`EMKA_ALLOW_STUB_MODELS=1`, announce themselves on stderr, and are never
+acceptable on a fielded device — `make smoke` accepts only real backends.
 
 ## 9. Repository layout
 
