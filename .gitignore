@@ -1,0 +1,39 @@
+# Corpus and model artifacts are staged on the device, never committed
+corpus/*
+!corpus/README.md
+models/*
+!models/README.md
+*.gguf
+
+# Ingested/derived data
+data/
+*.lance/
+ingest-log.csv
+ingest-log.sqlite
+query-log.*
+flag-queue.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+uv.lock
+
+# Node / web
+node_modules/
+web/dist/
+.vite/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Temp office render artifacts
+~$*

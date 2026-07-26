@@ -1,0 +1,12 @@
+# CAP-07 — Evacuation timeline planning factors. NON-PHI. Command-provided.
+as_of: 2026-07-01
+source: "EXAMPLE ONLY — replace with current OPORD planning factors"
+factors:
+  - route: "Point of injury -> Role 2 (rotary wing)"
+    timeline_hours: 2
+    notes: "weather dependent; monsoon season degrades"
+  - route: "Role 2 -> Role 3 (fixed wing)"
+    timeline_hours: 12
+  - route: "Denied window (contested)"
+    timeline_hours: 72
+    notes: "prolonged casualty care planning basis"

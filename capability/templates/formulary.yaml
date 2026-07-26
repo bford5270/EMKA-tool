@@ -1,0 +1,19 @@
+# CAP-01 — Deployed formulary (drugs actually stocked, by role). NON-PHI.
+# Command-provided: copy to corpus/unit/capability/formulary.yaml and maintain.
+# A stale as_of is a defect — the system warns loudly past the configured age.
+as_of: 2026-07-01
+source: "EXAMPLE ONLY — replace with command-approved formulary export"
+items:
+  - name: tranexamic acid
+    synonyms: [TXA]
+    stocked: { role1: true, role2: true, role3: true }
+  - name: freeze dried plasma
+    synonyms: [FDP]
+    stocked: { role1: false, role2: true, role3: true }
+    notes: "Role 1 carries none; whole blood posture applies"
+  - name: ertapenem
+    synonyms: [Invanz]
+    stocked: { role1: false, role2: false, role3: true }
+  - name: moxifloxacin
+    synonyms: [Avelox]
+    stocked: { role1: true, role2: true, role3: true }
