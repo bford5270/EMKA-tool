@@ -19,8 +19,14 @@ Non-negotiable constraints (every component inherits these):
 2. **Hardware-portable.** Dev happens on macOS (Apple Silicon) or Linux; the fielded
    target is x86 Linux. Inference is llama.cpp/GGUF — no MLX, no CUDA-only or
    OS-specific dependencies.
-3. **No PHI, ever.** The system indexes reference documents only. There are no
-   patient-data fields, storage, or code paths anywhere in this repo.
+3. **No PHI storage, ever.** The reference/retrieval system indexes documents
+   only. The `labs/` interpreter (§11) accepts de-identified patient lab
+   *values*, but they are processed **strictly in memory and never persisted** —
+   not to the query log, not to any store, not to browser storage. The invariant
+   is therefore "no patient-data *storage* or transmission," enforced at the API
+   layer (`/labs/interpret` writes nothing; `/query` logs only the question).
+   *(Revised from the original "no patient-data code paths" when the lab
+   interpreter was merged — see §12 decision log, 2026-07-26.)*
 4. **Citation fidelity is the point.** Every answer traces to specific source chunks
    with pub/edition/paragraph/page and character offsets into the extracted source
    text. Displayed quotes are machine-verified before display.
@@ -203,6 +209,7 @@ ingest/       PDF -> structured, cited chunks
 retrieval/    hybrid BM25 + dense + reranker, abstention gate
 generate/     grounded synthesis + verbatim verification
 capability/   formulary/AMAL/capability data for resource-aware inference
+labs/         deterministic lab-value interpreter (rules-based; §11)
 api/          FastAPI service (localhost / isolated LAN only)
 web/          React front end (Vite + Tailwind)
 eval/         gold-standard question harness + seed cases
@@ -240,10 +247,44 @@ exercised without touching staged unit files. The JSON report lands at
 `data/eval_report.json`; stub-model runs are watermarked in the report and
 console output — their numbers exercise mechanics, never quality gates.
 
-## 11. Decision log
+## 11. Labs — deterministic lab-value interpretation
+
+`labs/` is a rules-based clinical decision-support module (vendored from the
+IDC Lab Assistant project) that complements the RAG core: where retrieval
+answers "what does doctrine say," labs answers "what does this lab value mean
+and what do I do about it." It shares EMKA's discipline — it **never guesses a
+threshold**, the same way generation never invents a dose.
+
+- **Deterministic engine** (`labs/engine.py`): guideline-anchored thresholds in
+  `labs/rules.json` (KDIGO, ADA, AABB, AASLD, AAFP, ATA, ASH — each lab carries
+  a `sources` list) classify a value on a single severity ladder
+  (`Normal → Mild → Moderate → Severe → Critical`, with a Low/High suffix) and
+  return paste-ready `ehr_plan` and `patient_communication` text. Panel-level
+  derived computations: CKD-EPI 2021 eGFR, KDIGO CKD/AKI staging, anion gap,
+  BUN/Cr, and AHA PREVENT 10-year cardiovascular risk (via the pure-Python
+  `pyprevent`).
+- **Free-text parser** (`labs/lab_parser.py`): line-by-line, word-boundary lab
+  extraction so an IDC can paste raw results.
+- **API** (`POST /labs/interpret`): parses text and/or explicit values, runs the
+  panel, and — when `include_management` is set — links the single most severe
+  Critical/Severe finding to cited management guidance by querying the corpus
+  through the answer engine (a concept-level question that carries no numeric
+  value). Lab interpretation works standalone even with no index staged.
+- **UI**: a "Labs" tab in the React app, beside "Reference".
+
+**PHI boundary (see §1, constraint 3).** Lab values are the one place patient
+data enters the system. They are processed in memory and **never persisted** —
+`/labs/interpret` writes nothing to the query log, the management sub-query is
+issued directly against the engine (bypassing the logging route) and is phrased
+at the concept level (e.g. "management of critical high potassium"), and the UI
+holds values in memory only. `tests/test_labs.py` asserts no lab datum reaches
+the query log.
+
+## 12. Decision log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-07-11 | Scaffold at repo root; run-in-place (uv, no packaging) | Matches playbook layout; avoids installing a top-level `eval` package |
 | 2026-07-11 | Swap Qwen/bge stack for Phi-4/nomic/mxbai | US/allied-origin weights required for fielding; architecture unaffected |
 | 2026-07-11 | Added `core/` shared-contract package | Chunk schema + config need one home that ingest/retrieval/generate can all import without cross-dependencies |
+| 2026-07-26 | Merged the IDC Lab Assistant as `labs/`; relaxed the PHI invariant from "no patient-data code paths" to "no patient-data storage/transmission" | Lab interpretation is high-value for the same IDC/Role 1-2 users and is deterministic + offline like the rest of EMKA; the value only needs to live in memory for one interpretation, so a strict no-storage rule preserves the accreditation posture while enabling the capability |

@@ -4,6 +4,7 @@ import ConflictGroup from "./components/ConflictGroup.jsx";
 import AnswerPanel from "./components/AnswerPanel.jsx";
 import CapabilityNotes from "./components/CapabilityNotes.jsx";
 import FlagControl from "./components/FlagControl.jsx";
+import LabsPanel from "./components/LabsPanel.jsx";
 
 const ROLES = [
   { value: "role1", label: "Role 1 / BAS" },
@@ -13,6 +14,7 @@ const ROLES = [
 
 export default function App() {
   // All state is in memory only — nothing is written to browser storage.
+  const [tab, setTab] = useState("reference");
   const [question, setQuestion] = useState("");
   const [role, setRole] = useState("role2");
   const [result, setResult] = useState(null);
@@ -60,9 +62,30 @@ export default function App() {
         <p className="text-slate-400 text-sm">
           Expeditionary Medical Knowledge Assistant — offline, cited, verified
         </p>
+        <nav className="mt-3 flex gap-1">
+          {[
+            ["reference", "Reference"],
+            ["labs", "Labs"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`rounded-t-md px-4 py-1.5 text-sm font-semibold ${
+                tab === id
+                  ? "bg-slate-100 text-slate-900"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {tab === "labs" && <LabsPanel />}
+        {tab === "reference" && (
+        <>
         <form onSubmit={submit} className="flex gap-2">
           <input
             className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
@@ -149,6 +172,8 @@ export default function App() {
 
             <FlagControl result={result} />
           </>
+        )}
+        </>
         )}
       </main>
     </div>

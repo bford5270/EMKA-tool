@@ -59,6 +59,27 @@ class FlagRequest(BaseModel):
     chunk_ids: list[str] = []
 
 
+class LabValue(BaseModel):
+    lab_id: str
+    value: float
+
+
+class LabsRequest(BaseModel):
+    """Lab interpretation input. Provide either free `text` to parse or an
+    explicit `labs` list (or both). `context` carries non-PHI patient factors
+    (sex, age, systolic_bp, bmi, diabetic, …) that sharpen bands and enable
+    PREVENT. When `include_management` is set, Critical/Severe findings are
+    linked to cited management guidance from the corpus.
+
+    PHI: lab values and context are processed IN MEMORY ONLY and are NEVER
+    written to the query log or any store (DESIGN.md §1, revised)."""
+
+    text: str | None = Field(default=None, max_length=10000)
+    labs: list[LabValue] = []
+    context: dict | None = None
+    include_management: bool = False
+
+
 # ---------------------------------------------------------------------------
 # local stores (never any patient data)
 # ---------------------------------------------------------------------------
@@ -142,6 +163,66 @@ def query(req: QueryRequest) -> dict:
     conn.commit()
     conn.close()
     return payload
+
+
+def _most_severe_finding(results: list[dict]) -> dict | None:
+    """Pick the single finding whose severity most warrants cited management —
+    Critical over Severe, else None. Used to link labs to doctrine."""
+    order = {"Critical": 2, "Severe": 1}
+    ranked = [
+        (order.get(str(r.get("severity", "")).split(" ")[0], 0), r)
+        for r in results
+        if "error" not in r
+    ]
+    ranked = [(rank, r) for rank, r in ranked if rank > 0]
+    if not ranked:
+        return None
+    ranked.sort(key=lambda x: x[0], reverse=True)
+    return ranked[0][1]
+
+
+@app.post("/labs/interpret")
+def labs_interpret(req: LabsRequest) -> dict:
+    """Deterministic lab-value interpretation (labs/ package).
+
+    Values are interpreted in memory and NEVER persisted — unlike /query,
+    this route writes nothing to the query log. When include_management is set
+    and the panel has a Critical/Severe finding, the corpus is queried for
+    cited management guidance via the answer engine directly (which does not
+    log), using a concept-level question that carries no numeric value."""
+    from labs import evaluate_panel, load_rules, parse_text
+
+    rules = load_rules()
+    lab_inputs: list[tuple[str, float]] = [(lv.lab_id, lv.value) for lv in req.labs]
+    if req.text:
+        lab_inputs += [(p.lab_id, p.value) for p in parse_text(req.text, rules)]
+
+    if not lab_inputs:
+        raise HTTPException(status_code=422, detail="no recognizable labs in request")
+
+    panel = evaluate_panel(lab_inputs, rules, req.context)
+
+    management = None
+    if req.include_management:
+        finding = _most_severe_finding(panel["results"])
+        if finding is not None:
+            # concept-level question — display name + severity, never the value
+            question = (
+                f"management and workup of {finding['severity'].lower()} "
+                f"{finding['display_name'].lower()}"
+            )
+            try:
+                result = get_engine().answer(question, req.context)
+                management = {"triggered_by": finding["lab_id"], "query": question}
+                management.update(result.to_dict())
+            except Exception as e:  # index may be absent; labs still work
+                management = {"triggered_by": finding["lab_id"], "unavailable": str(e)}
+
+    return {
+        "findings": panel,
+        "management": management,
+        "no_phi_notice": NO_PHI_NOTICE,
+    }
 
 
 @app.post("/flag")

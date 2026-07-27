@@ -20,6 +20,9 @@ dependencies = [
     "pyyaml>=6.0.3",
     "fastapi>=0.139.0",
     "uvicorn>=0.51.0",
+    # labs/ — pure-Python implementation of the 2024 AHA PREVENT calculator
+    # (no transitive deps, no network); used only for cardiovascular risk.
+    "pyprevent>=0.1.5",
 ]
 
 [dependency-groups]

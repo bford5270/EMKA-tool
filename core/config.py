@@ -19,6 +19,16 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# macOS ships multiple OpenMP runtimes: PyTorch bundles libomp and
+# pyarrow/lancedb bundle their own. When both load in one process (e.g.
+# `make index`/`serve`, which import retrieval.store's lancedb AND torch),
+# the duplicate-runtime guard can deadlock the interpreter during import
+# (observed as an uninterruptible hang before any model loads). Allowing the
+# duplicate runtime resolves it and does not affect the x86 Linux target.
+# setdefault so an operator can still override. Must run at import time,
+# before torch/lancedb are imported — core.config is imported first everywhere.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 

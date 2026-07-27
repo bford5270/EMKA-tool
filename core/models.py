@@ -85,16 +85,28 @@ class SentenceTransformerEmbedder:
 
     def __init__(self, cfg: EmkaConfig):
         cfg.enforce_offline()
+        import os
+
         import sentence_transformers
 
         self._query_prefix = cfg.embed_query_prefix
         self._doc_prefix = cfg.embed_document_prefix
+        # Run on CPU by default. The fielded target is x86 CPU (DESIGN.md §8:
+        # "nothing Mac-only"), and Apple's MPS backend OOMs on long-sequence
+        # batches of nomic-embed. EMKA_DEVICE can override for a GPU dev box.
+        self._device = os.environ.get("EMKA_DEVICE", "cpu")
+        self._batch_size = int(os.environ.get("EMKA_EMBED_BATCH", "16"))
         self._model = sentence_transformers.SentenceTransformer(
-            cfg.embed_model_id, trust_remote_code=True
+            cfg.embed_model_id, trust_remote_code=True, device=self._device
         )
 
     def _encode(self, texts: list[str]) -> list[list[float]]:
-        return self._model.encode(texts, normalize_embeddings=True).tolist()
+        return self._model.encode(
+            texts,
+            normalize_embeddings=True,
+            batch_size=self._batch_size,
+            show_progress_bar=False,
+        ).tolist()
 
     def embed_queries(self, texts: list[str]) -> list[list[float]]:
         return self._encode([self._query_prefix + t for t in texts])
@@ -108,9 +120,12 @@ class CrossEncoderReranker:
 
     def __init__(self, cfg: EmkaConfig):
         cfg.enforce_offline()
+        import os
+
         import sentence_transformers
 
-        self._model = sentence_transformers.CrossEncoder(cfg.rerank_model_id)
+        device = os.environ.get("EMKA_DEVICE", "cpu")
+        self._model = sentence_transformers.CrossEncoder(cfg.rerank_model_id, device=device)
 
     def score(self, query: str, passages: list[str]) -> list[float]:
         return [float(s) for s in self._model.predict([(query, p) for p in passages])]

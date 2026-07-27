@@ -39,10 +39,18 @@ IGNORE_PATTERNS = ["*.onnx", "onnx/*", "*.bin", "*.h5", "*.tflite", "*.msgpack",
 
 
 def main() -> None:
-    from huggingface_hub import hf_hub_download, snapshot_download
-
+    # HF_HOME must be set BEFORE huggingface_hub is imported — the library reads
+    # it at import time to fix its cache constants. Setting it afterward silently
+    # leaves downloads in the user's default ~/.cache/huggingface, which then
+    # cannot be found by the offline runtime (enforce_offline points HF_HOME at
+    # models/hf-cache). Set the env, then import, then also pass cache_dir
+    # explicitly to snapshot_download as belt-and-suspenders.
     cfg = load_config()
+    hub_cache = cfg.hf_cache_dir / "hub"
     os.environ["HF_HOME"] = str(cfg.hf_cache_dir)
+    os.environ["HF_HUB_CACHE"] = str(hub_cache)
+
+    from huggingface_hub import hf_hub_download, snapshot_download
 
     chat_dir = cfg.models_dir / "chat"
     chat_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +63,7 @@ def main() -> None:
 
     for repo in HF_REPOS:
         print(f"[hf-cache] {repo}")
-        snapshot_download(repo_id=repo, ignore_patterns=IGNORE_PATTERNS)
+        snapshot_download(repo_id=repo, ignore_patterns=IGNORE_PATTERNS, cache_dir=str(hub_cache))
 
     print("\nStaged models:")
     for path in sorted(cfg.models_dir.rglob("*")):
