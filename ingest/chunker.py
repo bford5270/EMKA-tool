@@ -203,6 +203,13 @@ def chunk_document(doc: ExtractedDoc, pub_number: str) -> list[RawChunk]:
         if not group:
             group_breadcrumb = tracker.breadcrumb()
         group.append(p)
+        # A heading arriving before the group has any body content refines the
+        # breadcrumb the not-yet-emitted chunk will carry. Without this, a
+        # chapter title immediately followed by its first subsection (no body
+        # between) would drop the subsection level — e.g. "Ch 3 > p.1" instead
+        # of "Ch 3 > 3.1 > p.1". Consecutive headings: the deepest one wins.
+        if is_heading_para and not group_has_body:
+            group_breadcrumb = tracker.breadcrumb()
         group_has_body = group_has_body or not is_heading_para
 
         # an atomic block always terminates its chunk

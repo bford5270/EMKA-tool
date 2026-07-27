@@ -87,7 +87,7 @@ def build_queue(
             claimed.add(path)
 
     all_refs = {r.ref_id.lower() for r in rows}
-    for shelf, index in indexes.items():
+    for _shelf, index in indexes.items():
         for ref, path in index.items():
             if path not in claimed and ref not in all_refs:
                 report.unmatched_files.append(path)

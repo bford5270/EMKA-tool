@@ -173,6 +173,32 @@ def test_full_run_emits_report_and_gates(engine, capsys):
     assert report["metadata"]["stub_models"] is True
     assert {c["case_id"] for c in report["cases"]} == {"EMKA-EVAL-001", "EMKA-EVAL-025"}
 
-    # without --report-only, threshold breaches gate with exit code 1
+    # even without --report-only, a STUB run must never gate (DESIGN.md §10):
+    # stub numbers exercise mechanics only, so exit is 0 regardless of breaches.
     rc = run(["--only", "EMKA-EVAL-001,EMKA-EVAL-026"], engine=engine)
-    assert rc in (0, 1)  # gating path executes; stub numbers may or may not breach
+    assert rc == 0
+    report = json.loads((cfg.data_dir / "eval_report.json").read_text())
+    assert report["metadata"]["gating_enabled"] is False
+
+
+def test_stub_run_does_not_gate_despite_breaches(engine):
+    """A guaranteed-breach case (out-of-corpus 'answer' expectation) still
+    exits 0 under stub models, and the report records gating as disabled."""
+    rc = run(["--only", "EMKA-EVAL-001"], engine=engine)
+    assert rc == 0
+    report = json.loads((engine.cfg.data_dir / "eval_report.json").read_text())
+    assert report["metadata"]["stub_models"] is True
+    assert report["metadata"]["gating_enabled"] is False
+
+
+def test_care_role_mapping():
+    from eval.run import care_role_for
+
+    assert care_role_for({"role": "IDC"}) == "role1"
+    assert care_role_for({"role": "Role2"}) == "role2"
+    assert care_role_for({"role": "DNBI"}) == "role1"
+    assert care_role_for({"role": "Planner"}) == "role2"
+    # an explicit context.role overrides the top-level role
+    assert care_role_for({"role": "IDC", "context": {"role": "role3"}}) == "role3"
+    # unknown roles fall back to role2
+    assert care_role_for({"role": "spaceforce"}) == "role2"

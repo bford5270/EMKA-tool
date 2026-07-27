@@ -29,7 +29,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from core.schema import Chunk
 
@@ -38,7 +38,7 @@ QUOTE_RE = re.compile(r"<quote\s+src=\"([^\"]+)\"\s*>(.*?)</quote>", re.DOTALL)
 CanonicalLookup = Callable[[str], str | None]  # doc_id -> canonical text (or None)
 
 
-class QuoteStatus(str, Enum):
+class QuoteStatus(StrEnum):
     EXACT = "exact"
     WS_NORMALIZED = "ws_normalized"
     FAIL_NOT_FOUND = "fail_not_found"

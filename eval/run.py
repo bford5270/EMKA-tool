@@ -69,8 +69,42 @@ def load_cases(path: Path = CASES_PATH) -> tuple[dict, list[dict]]:
 # per-case context -> ephemeral loadout
 # ---------------------------------------------------------------------------
 
+# The seed-case role taxonomy names the querying USER (IDC / Role2 / Planner /
+# DNBI); the loadout is keyed by CARE role (role1/2/3, see capability/loadout.py
+# ROLES). Map one to the other so role-dependent formulary/equipment matching is
+# actually exercised per case instead of every case defaulting to role2. The
+# mappings reflect where each user type typically receives/provides care and are
+# SME-adjustable; anything unrecognized falls back to role2.
+EVAL_ROLE_TO_CARE_ROLE = {
+    "idc": "role1",  # Independent Duty Corpsman — Role 1 / BAS
+    "dnbi": "role1",  # DNBI / primary care — Role 1
+    "planner": "role2",  # planner reasons across roles; role2 is a neutral default
+    "role1": "role1",
+    "role2": "role2",
+    "role3": "role3",
+}
+
+
+def care_role_for(case: dict) -> str:
+    """Care-role vocabulary the loadout understands, from a case's declared role.
+    An explicit ``context.role`` wins; otherwise the top-level ``role`` is
+    mapped; otherwise role2."""
+    context = case.get("context") or {}
+    raw = context.get("role") or case.get("role") or "role2"
+    return EVAL_ROLE_TO_CARE_ROLE.get(str(raw).lower().replace(" ", ""), "role2")
+
 
 def loadout_from_context(context: dict) -> Loadout | None:
+    """Build an ephemeral loadout from a case's ``context`` so availability logic
+    runs isolated from staged unit files (DESIGN.md §10).
+
+    Models the formulary present/absent lists. A free-text ``capability_matrix``
+    (e.g. EMKA-EVAL-030) is intentionally NOT modeled here: it is prose, and the
+    answer engine has no consumer for a structured matrix — the Role 1/2/3 scope
+    a capability-limit case needs is delivered by retrieving the CAP-03 matrix
+    from the corpus, not injected as loadout data. Returns None when there is no
+    modeled context, in which case the caller keeps the engine's own loadout.
+    """
     formulary: list[FormularyItem] = []
     all_roles = {"role1": True, "role2": True, "role3": True}
     no_roles = {"role1": False, "role2": False, "role3": False}
@@ -137,7 +171,7 @@ def grade_case_model(case: dict, result: AnswerResult, chat) -> tuple[bool, list
 
 def score_case(case: dict, engine: AnswerEngine, grader: str) -> CaseScore:
     context = dict(case.get("context") or {})
-    role = context.get("role", "role2")
+    role = care_role_for(case)
     case_loadout = loadout_from_context(context)
     if case_loadout is not None:
         engine = AnswerEngine(
@@ -260,12 +294,16 @@ def run(argv: list[str] | None = None, engine: AnswerEngine | None = None) -> in
     thresholds = metadata.get("thresholds", {})
     breaches = gate(metrics, thresholds)
 
+    # Stub-model numbers exercise mechanics only; they must never gate a run
+    # (DESIGN.md §10). --report-only also disables gating.
+    gating_disabled = args.report_only or stub_mode
     report = {
         "metadata": {
             "cases_version": metadata.get("version"),
             "n_cases": len(cases),
             "grader": args.grader,
             "stub_models": stub_mode,
+            "gating_enabled": not gating_disabled,
         },
         "metrics": metrics,
         "thresholds": thresholds,
@@ -283,9 +321,12 @@ def run(argv: list[str] | None = None, engine: AnswerEngine | None = None) -> in
         print(f"  {name:<28} {shown}    {floor}")
     for b in breaches:
         print(f"  BREACH: {b}")
+    if breaches and gating_disabled:
+        reason = "stub models active" if stub_mode else "--report-only"
+        print(f"\n(gating disabled — {reason}: breaches above do NOT fail the run)")
     print(f"\nreport -> {out}")
 
-    if args.report_only or not breaches:
+    if gating_disabled or not breaches:
         return 0
     return 1
 

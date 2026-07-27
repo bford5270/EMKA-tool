@@ -65,6 +65,16 @@ def test_health(client):
     assert "patient" in body["no_phi_notice"]
 
 
+def test_swagger_and_redoc_disabled_for_airgap(client):
+    """The Swagger/ReDoc UIs pull assets from cdn.jsdelivr.net; on an
+    air-gapped device they must not be served (DESIGN.md §1). OpenAPI JSON,
+    which is self-contained, stays available."""
+    c, _ = client
+    assert c.get("/docs").status_code == 404
+    assert c.get("/redoc").status_code == 404
+    assert c.get("/openapi.json").status_code == 200
+
+
 def test_query_returns_structured_result_and_logs(client):
     c, cfg = client
     r = c.post(

@@ -29,11 +29,16 @@ NO_PHI_NOTICE = (
     "No patient data is stored by this service."
 )
 
+# The Swagger UI (/docs) and ReDoc (/redoc) HTML load their JS/CSS from
+# cdn.jsdelivr.net — an external network reference that is both broken and
+# disallowed on an air-gapped device (DESIGN.md §1). Both are disabled; the
+# OpenAPI JSON schema at /openapi.json is self-contained and stays available.
 app = FastAPI(
     title="EMKA",
     description="Expeditionary Medical Knowledge Assistant — air-gapped reference service",
     version="0.1.0",
-    docs_url="/docs",
+    docs_url=None,
+    redoc_url=None,
 )
 
 

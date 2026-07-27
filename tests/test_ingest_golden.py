@@ -74,6 +74,13 @@ def test_breadcrumbs_track_doctrine_numbering(ingested, sample_pdf):
         assert matches, f"no chunk contains {needle!r}"
         return matches[0]
 
+    # regression: a chapter title immediately followed by its first subsection
+    # with no body between (CHAPTER 3 then 3.1) must still carry the 3.1 level,
+    # not collapse to "Ch 3". This is the first-subsection-of-every-chapter case.
+    c = find("This Clinical Practice Guideline describes")
+    assert "3.1" in c.breadcrumb, c.breadcrumb
+    assert c.page == 1
+
     c = find("Massive transfusion is defined")
     assert c.breadcrumb.startswith("JTS CPG 18 > Ch 3 > 3.2"), c.breadcrumb
     assert c.page == 1
@@ -133,17 +140,42 @@ def test_jsonl_roundtrip(ingested, tmp_path, monkeypatch):
     assert result.sha256 in manifest
 
 
-def test_chunker_produces_overlap(ingested, sample_pdf):
-    _, synthetic = sample_pdf
-    if not synthetic:
-        pytest.skip("fixture-specific")
-    _, chunks, _ = ingested
+def test_chunker_produces_real_overlap():
+    """A section long enough to force a size-based flush must carry one
+    paragraph of overlap into the next chunk (DESIGN.md §5). Asserted
+    concretely (next chunk starts before previous chunk ends), not vacuously:
+    the shared fixture's sections are all under the size threshold, so the
+    overlap path is exercised here against a purpose-built long section.
+    """
+    from ingest.chunker import chunk_document
+    from ingest.extract import ExtractedDoc, PageText
+
+    body = (
+        "Balanced blood product resuscitation restores circulating volume while "
+        "limiting the dilutional coagulopathy that accompanies large volume "
+        "crystalloid administration in the deployed casualty, over enough words "
+        "to make each paragraph substantial on its own for chunk sizing."
+    )
+    paras = [f"Paragraph number {i} discusses the following. {body}" for i in range(14)]
+    canonical = "4.1 Resuscitation Principles\n\n" + "\n\n".join(paras)
+    doc = ExtractedDoc(
+        path="synthetic",
+        pages=[PageText(number=1, text=canonical, char_start=0)],
+        text=canonical,
+    )
+    chunks = chunk_document(doc, pub_number="JTS CPG 18")
+
     non_atomic = [c for c in chunks if not c.is_atomic]
-    if len(non_atomic) >= 2:
-        overlaps = sum(
-            1 for a, b in zip(non_atomic, non_atomic[1:], strict=False) if b.char_start < a.char_end
-        )
-        assert overlaps >= 0  # overlap allowed; contiguity is asserted by offsets test
+    assert len(non_atomic) >= 2, "a long section should split into multiple chunks"
+    overlaps = sum(
+        1
+        for a, b in zip(non_atomic, non_atomic[1:], strict=False)
+        if b.char_start < a.char_end
+    )
+    assert overlaps >= 1, "size-based flush must carry one paragraph of overlap"
+    # the offset invariant still holds on the synthetic doc
+    for c in chunks:
+        assert canonical[c.char_start : c.char_end] == c.text, c.chunk_id
 
 
 def test_extraction_deterministic(sample_pdf):
